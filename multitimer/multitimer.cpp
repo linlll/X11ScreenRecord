@@ -94,8 +94,9 @@ long createMultiTimer(long long intval, timerHandler timer_handler, void* arg,
 }
 
 void destroyMultiTimer() {
-  multiTimer *prev;
-  prev = timerListHead;
+  setitimer(ITIMER_REAL, &old_timerval, nullptr);
+  usleep(100000); // 100ms
+  multiTimer *prev = timerListHead;
   while (prev != nullptr) {
     multiTimer *tmp = prev->next;
     free(prev);
@@ -103,5 +104,4 @@ void destroyMultiTimer() {
   }
 
   pthread_sigmask(SIG_SETMASK, &old_mask, nullptr);
-  setitimer(ITIMER_REAL, &old_timerval, nullptr);
 }
