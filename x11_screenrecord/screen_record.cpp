@@ -12,6 +12,7 @@
 #include <sys/shm.h>
 
 #include "multitimer.h"
+#include "message_queue.h"
 
 #define DEBUG_HANDLE_TIME 1
 
@@ -22,6 +23,8 @@ typedef struct ScreenRecordInfo {
   XShmSegmentInfo *shm_seg_info = nullptr;
   XImage *shm_image = nullptr;
   cv::VideoWriter vw;
+  pthread_t vw_thread;
+  bool shutdown;
 } ScreenRecordInfo;
 
 static ScreenRecordInfo screen_record_info;
@@ -31,16 +34,15 @@ static void videoReleaseHandler(void *arg) {
   screen_record_info.vw.release();
 }
 
-static void frameHandler(void *arg) {
+static void frameGetHandler(void *arg) {
 #if DEBUG_HANDLE_TIME
   clock_t start = clock();
 #endif
 
   XShmGetImage(screen_record_info.display, screen_record_info.root, screen_record_info.shm_image, 0, 0, AllPlanes);
-  cv::Mat img(screen_record_info.h, screen_record_info.w, CV_8UC4);
-  img.data = (uchar*)(screen_record_info.shm_image->data);
-  cv::cvtColor(img, img, cv::COLOR_BGRA2BGR);
-  screen_record_info.vw.write(img);
+  uint8_t *data = (uint8_t*)malloc(screen_record_info.shm_image->bytes_per_line*screen_record_info.shm_image->height);
+  memcpy(data, screen_record_info.shm_image->data, screen_record_info.shm_image->bytes_per_line*screen_record_info.shm_image->height);
+  pushImageQueue(data);
 
 #if DEBUG_HANDLE_TIME
   clock_t end = clock();
@@ -48,7 +50,18 @@ static void frameHandler(void *arg) {
 #endif
 }
 
+static void *frameWriteHandler(void *arg) {
+  while (!screen_record_info.shutdown) {
+    cv::Mat img(screen_record_info.h, screen_record_info.w, CV_8UC4);
+    popImageQueue(&img.data);
+    cv::cvtColor(img, img, cv::COLOR_BGRA2BGR);
+    screen_record_info.vw.write(img);
+  }
+  return NULL;
+}
+
 void initScreenRecord() {
+  screen_record_info.shutdown = false;
   screen_record_info.display = XOpenDisplay(NULL);
   screen_record_info.root = XDefaultRootWindow(screen_record_info.display);
   XWindowAttributes attr;
@@ -70,8 +83,12 @@ void initScreenRecord() {
 
 void startScreenRecord(std::string filename, float fps, int release_time) {
   screen_record_info.vw.open(filename, cv::VideoWriter::fourcc('m','p','4','v'), fps, cv::Size(screen_record_info.w, screen_record_info.h));
-  createMultiTimer((long long)(1000.0/fps), frameHandler, NULL, true);
+  createMultiTimer((long long)(1000.0/fps), frameGetHandler, NULL, true);
   createMultiTimer(release_time, videoReleaseHandler, NULL, true);
+
+  initImageQueue(1000);
+
+  pthread_create(&screen_record_info.vw_thread, NULL, frameWriteHandler, NULL);
 
   tcgetattr(STDIN_FILENO, &old_settings);
   struct termios new_settings = old_settings;
@@ -92,7 +109,10 @@ void startScreenRecord(std::string filename, float fps, int release_time) {
 }
 
 void destroyScreenRecord() {
+  screen_record_info.shutdown = true;
+  pthread_join(screen_record_info.vw_thread, NULL);
   destroyMultiTimer();
+  destroyImageQueue();
   tcsetattr(STDIN_FILENO, TCSAFLUSH, &old_settings);
   screen_record_info.vw.release();
   XShmDetach(screen_record_info.display, screen_record_info.shm_seg_info);

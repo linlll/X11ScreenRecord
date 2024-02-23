@@ -30,31 +30,31 @@ void pushImageQueue(uint8_t *src) {
 
   pool.buffer.push(src);
 
-  printf("pushImageQueue: size=%ld\n", pool.buffer.size());
-  pthread_cond_signal(&pool_push_cond);
+  // printf("pushImageQueue: size=%ld\n", pool.buffer.size());
+  pthread_cond_signal(&pool_pop_cond);
   pthread_mutex_unlock(&pool_lock);
 }
 
 void popImageQueue(uint8_t **dst) {
   pthread_mutex_lock(&pool_lock);
-  while (pool.buffer.size() == 0) {
-    pthread_cond_wait(&pool_push_cond, &pool_lock);
+  while (pool.buffer.empty()) {
+    pthread_cond_wait(&pool_pop_cond, &pool_lock);
   }
 
   *dst = pool.buffer.front();
   pool.buffer.pop();
 
-  printf("popImageQueue: size=%ld\n", pool.buffer.size());
+  // printf("popImageQueue: size=%ld\n", pool.buffer.size());
   pthread_cond_signal(&pool_push_cond);
   pthread_mutex_unlock(&pool_lock);
 }
 
 void destroyImageQueue() {
-  while (!pool.buffer.empty()) {
-    uint8_t *ptr = pool.buffer.front();
-    delete ptr;
-    pool.buffer.pop();
-  }
+  // while (!pool.buffer.empty()) {
+  //   uint8_t *ptr = pool.buffer.front();
+  //   delete ptr;
+  //   pool.buffer.pop();
+  // }
   // pthread_mutex_destroy(&image_buffer_lock);
   // pthread_cond_destroy(&image_buffer_push_cond);
   // pthread_cond_destroy(&image_buffer_pop_cond);
