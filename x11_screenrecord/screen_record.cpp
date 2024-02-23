@@ -33,17 +33,11 @@ static void frameHandler(void *arg) {
 #endif
 
   XImage *image = XGetImage(screen_record_info.display, screen_record_info.root, screen_record_info.x, screen_record_info.y, screen_record_info.w, screen_record_info.h, AllPlanes, ZPixmap);
-  cv::Mat img(screen_record_info.h, screen_record_info.w, CV_8UC3);
+  cv::Mat img(screen_record_info.h, screen_record_info.w, CV_8UC4);
 
-  for (int i = 0; i < screen_record_info.h; i++) {
-    for (int j = 0; j < screen_record_info.w; j++) {
-      uint64_t pixel = XGetPixel(image, j, i);
-      uint8_t blue = pixel & image->blue_mask;
-      uint8_t green = (pixel & image->green_mask) >> 8;
-      uint8_t red = (pixel & image->red_mask) >> 16;
-      img.at<cv::Vec3b>(i, j) = cv::Vec3b(blue, green, red);
-    }
-  }
+  memcpy(img.data, image->data, image->bytes_per_line*image->height);
+  img.convertTo(img, CV_8UC3);
+
   screen_record_info.vw.write(img);
   XDestroyImage(image);
 
