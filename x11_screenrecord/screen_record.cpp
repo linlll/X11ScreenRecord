@@ -36,7 +36,7 @@ static void frameHandler(void *arg) {
   cv::Mat img(screen_record_info.h, screen_record_info.w, CV_8UC4);
 
   img.data = (uchar*)(image->data);
-  img.convertTo(img, CV_8UC3);
+  cv::cvtColor(img, img, cv::COLOR_BGRA2BGR);
 
   screen_record_info.vw.write(img);
   XDestroyImage(image);
