@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(opencv_videowriter)
+project(OPENCV_VIDEOWRITER)
 
 find_package(OpenCV REQUIRED)
 message(STATUS ${OpenCV_INCLUDE_DIRS})

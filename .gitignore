@@ -33,3 +33,4 @@
 
 build/
 *.mp4
+.vscode/
