@@ -35,7 +35,7 @@ static void frameHandler(void *arg) {
   XImage *image = XGetImage(screen_record_info.display, screen_record_info.root, screen_record_info.x, screen_record_info.y, screen_record_info.w, screen_record_info.h, AllPlanes, ZPixmap);
   cv::Mat img(screen_record_info.h, screen_record_info.w, CV_8UC4);
 
-  memcpy(img.data, image->data, image->bytes_per_line*image->height);
+  img.data = (uchar*)(image->data);
   img.convertTo(img, CV_8UC3);
 
   screen_record_info.vw.write(img);
